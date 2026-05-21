@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Birthday Wall</string>
+    <string name="widget_name">Birthday Wall</string>
+    <string name="widget_description">Next birthday + a random photo from the wall.</string>
+    <string name="widget_setup_label">Birthday Wall widget setup</string>
+    <string name="widget_setup_title">Set up your widget</string>
+    <string name="widget_setup_hint">Enter your wall\'s passcode. It\'s saved on this device only.</string>
+    <string name="passcode_hint">passcode</string>
+    <string name="save">save</string>
+    <string name="photo_description">A photo from the wall</string>
+</resources>

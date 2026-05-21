@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center_vertical"
+    android:background="#f5edcf">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/widget_setup_title"
+        android:textColor="#1f1812"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-black" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/widget_setup_hint"
+        android:textColor="#5a4f44"
+        android:textSize="14sp"
+        android:layout_marginTop="6dp" />
+
+    <EditText
+        android:id="@+id/passcode_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/passcode_hint"
+        android:inputType="textPassword"
+        android:layout_marginTop="20dp"
+        android:padding="12dp"
+        android:background="@drawable/input_bg"
+        android:textColor="#1f1812" />
+
+    <Button
+        android:id="@+id/save_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/save"
+        android:layout_marginTop="20dp"
+        android:layout_gravity="end" />
+</LinearLayout>

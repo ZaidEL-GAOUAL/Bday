@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Cake plate -->
+    <path
+        android:pathData="M36 72 L72 72 L70 76 L38 76 Z"
+        android:fillColor="#5a4f44" />
+
+    <!-- Cake body (frosted, two layers) -->
+    <path
+        android:pathData="M38 56 L70 56 L70 72 L38 72 Z"
+        android:fillColor="#e4634a" />
+    <path
+        android:pathData="M40 48 L68 48 L68 56 L40 56 Z"
+        android:fillColor="#d9b53f" />
+
+    <!-- Candle -->
+    <path
+        android:pathData="M52 36 L56 36 L56 48 L52 48 Z"
+        android:fillColor="#7ac4a9" />
+
+    <!-- Flame -->
+    <path
+        android:pathData="M54 26 C 56 30, 58 32, 56 36 C 54 36, 53 35, 52 33 C 51 30, 53 28, 54 26 Z"
+        android:fillColor="#e4634a" />
+</vector>
