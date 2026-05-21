@@ -9,6 +9,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="application-name" content="Birthday Wall" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <style>
     :root {
       --paper: #f5edcf;
@@ -205,6 +208,12 @@
       render(passcode);
       setInterval(() => { if (!document.hidden) render(passcode); }, 5 * 60 * 1000);
       document.addEventListener("visibilitychange", () => { if (!document.hidden) render(passcode); });
+    }
+
+    // Register the service worker so Chrome offers "Install" on Android.
+    // Scoped to this page only, so it won't touch the main site.
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
     }
 
     // Boot: passcode comes from ?p= (one-tap setup) or localStorage.

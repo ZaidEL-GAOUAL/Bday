@@ -514,7 +514,8 @@ function WidgetInstall(){
         {buttons}
       </div>
       <div className="h-mono" style={{color: "var(--ink-soft)", marginTop: 10, fontSize: 9, lineHeight: 1.4}}>
-        iPhone: needs the free <b>Scriptable</b> app. android: open widget page → add to home screen, or point an HTML-widget app at it.
+        iPhone → needs the free <b>Scriptable</b> app (true home-screen widget tile).<br/>
+        android → opens the widget page; chrome will offer <b>install app</b> (one-tap, opens fullscreen on tap, not a live tile). for a real live tile on android you'd need a native APK or a 3rd-party HTML-widget app from the play store.
       </div>
     </div>
   );
