@@ -470,6 +470,56 @@ function ProfileChip({ profileId, profiles, size = "sm" }){
   );
 }
 
+// One-tap install paths for the phone widgets. iOS opens Scriptable with
+// the script pre-loaded; Android (or anything else) opens widget.html
+// which prompts for the passcode once and remembers it.
+function WidgetInstall(){
+  const scriptUrl = "https://raw.githubusercontent.com/ZaidEL-GAOUAL/Bday/main/widgets/bday-wall.scriptable.js";
+  const scriptableUrl = `scriptable:///add?scriptName=${encodeURIComponent("Birthday Wall")}&scriptURL=${encodeURIComponent(scriptUrl)}`;
+  const webWidgetUrl = `${location.origin}${location.pathname.replace(/\/[^/]*$/, "")}/widget.html`;
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent || "");
+  const isAndroid = /Android/.test(navigator.userAgent || "");
+  const showIOSFirst = isIOS || !isAndroid;
+
+  const buttons = [
+    showIOSFirst && (
+      <a key="ios" className="btn" href={scriptableUrl} style={{textDecoration: "none", background: "#fff8e6"}}>
+        📱 Add to iPhone (Scriptable)
+      </a>
+    ),
+    <a key="web" className="btn" href={webWidgetUrl} target="_blank" rel="noreferrer" style={{textDecoration: "none"}}>
+      🌐 Open widget page
+    </a>,
+    !showIOSFirst && (
+      <a key="ios" className="btn ghost" href={scriptableUrl} style={{textDecoration: "none"}}>
+        iPhone instead
+      </a>
+    ),
+  ].filter(Boolean);
+
+  return (
+    <div style={{
+      marginTop: 22, paddingTop: 16,
+      borderTop: "1px dashed rgba(0,0,0,.18)",
+    }}>
+      <div className="h-mono" style={{color: "var(--ink-soft)"}}>phone widget</div>
+      <div className="h-display" style={{fontSize: 22, marginTop: 4, lineHeight: 1.05}}>
+        put the wall on your home screen
+      </div>
+      <div className="h-hand" style={{fontSize: 18, color: "var(--ink-soft)", marginTop: 6, lineHeight: 1.2}}>
+        a small live tile showing the next birthday + a random photo. refreshes every ~15 minutes. asks for the passcode once on first run.
+      </div>
+      <div style={{display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12}}>
+        {buttons}
+      </div>
+      <div className="h-mono" style={{color: "var(--ink-soft)", marginTop: 10, fontSize: 9, lineHeight: 1.4}}>
+        iPhone: needs the free <b>Scriptable</b> app. android: open widget page → add to home screen, or point an HTML-widget app at it.
+      </div>
+    </div>
+  );
+}
+
 function ProfileEditor({ open, onClose }){
   const { profile, updateProfile, setFriendMemory, uploadAvatar, signOut, session, limits } = useAuth();
   const [name, setName] = React.useState(profile?.display_name || "");
@@ -693,6 +743,8 @@ function ProfileEditor({ open, onClose }){
             </button>
           </div>
         </form>
+
+        <WidgetInstall />
 
         <div style={{
           marginTop: 22, paddingTop: 16,

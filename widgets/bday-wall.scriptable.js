@@ -1,25 +1,23 @@
 // =============================================================================
 //  The Birthday Wall — iOS home-screen widget for Scriptable.app (free).
 //
-//  Setup:
-//    1. Install Scriptable from the App Store (free).
-//    2. Open Scriptable → tap the "+" top-right → paste this whole file in.
-//    3. Tap the title bar, name it "Birthday Wall", tap Done.
-//    4. Edit the PASSCODE constant just below to your wall's passcode.
-//    5. Long-press your home screen → "+" top-left → search "Scriptable" →
-//       pick the medium or large size → tap "Add Widget" → tap the widget →
-//       under "Script" pick "Birthday Wall".
+//  Easiest install: tap the "Add to iPhone widget" button on the website
+//  from your iPhone (Safari). It opens this script directly in Scriptable.
 //
-//  Refresh: iOS decides when to update widgets, usually every 15-30 min.
+//  Manual install: open Scriptable → + → paste this file → name it
+//  "Birthday Wall" → save.
 //
-//  No passwords, no logins. Just the same passcode you use on the website.
-//  The widget hits a passcode-protected Edge Function that returns a
-//  signed photo URL valid for 2h, so cold-cached widgets keep working.
+//  First run: open the script once inside Scriptable and tap Run (▶).
+//  It'll ask for the wall's passcode and save it to iOS Keychain so you
+//  never have to re-enter it.
+//
+//  Then long-press the home screen → + → search "Scriptable" → pick a
+//  size (medium or large) → tap the widget → set Script to "Birthday Wall".
 // =============================================================================
 
-const PASSCODE     = "PUT-YOUR-PASSCODE-HERE";
-const SUPABASE_URL = "https://adgqourcxbjkupdrqpyt.supabase.co";
-const ANON_KEY     = "sb_publishable_SDf6CKA_DJR1uMNJk1SOeg_1kXRRpls";
+const SUPABASE_URL  = "https://adgqourcxbjkupdrqpyt.supabase.co";
+const ANON_KEY      = "sb_publishable_SDf6CKA_DJR1uMNJk1SOeg_1kXRRpls";
+const PASSCODE_KEY  = "bday-wall-passcode";
 
 const COLORS = {
   paper:   new Color("#f5edcf"),
@@ -45,7 +43,24 @@ function fmtDays(n){
   return `in ${n} days`;
 }
 
-async function loadData(){
+async function getPasscode(){
+  if (Keychain.contains(PASSCODE_KEY)) return Keychain.get(PASSCODE_KEY);
+  // Widgets can't show dialogs — only ask in the app itself.
+  if (config.runsInWidget) return null;
+  const alert = new Alert();
+  alert.title = "Birthday Wall";
+  alert.message = "Enter your wall's passcode. We'll save it to iOS Keychain so you never see this again.";
+  alert.addSecureTextField("passcode", "");
+  alert.addAction("Save");
+  alert.addCancelAction("Cancel");
+  const idx = await alert.present();
+  if (idx !== 0) return null;
+  const p = alert.textFieldValue(0).trim();
+  if (p) Keychain.set(PASSCODE_KEY, p);
+  return p || null;
+}
+
+async function loadData(passcode){
   const req = new Request(`${SUPABASE_URL}/functions/v1/widget-data`);
   req.method  = "POST";
   req.headers = {
@@ -53,7 +68,7 @@ async function loadData(){
     "apikey":        ANON_KEY,
     "Authorization": `Bearer ${ANON_KEY}`,
   };
-  req.body = JSON.stringify({ passcode: PASSCODE });
+  req.body = JSON.stringify({ passcode });
   return await req.loadJSON();
 }
 
@@ -128,7 +143,6 @@ function buildWidget(data, photo){
     img.centerAlignImage();
   }
 
-  // Refresh every ~15 minutes (iOS may delay this further).
   w.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
   return w;
 }
@@ -150,16 +164,25 @@ function errorWidget(msg){
 
 let widget;
 try {
-  const data = await loadData();
-  if (data && data.error){
-    widget = errorWidget(data.error === "invalid passcode"
-      ? "wrong passcode — edit it in the script"
-      : data.error);
+  const passcode = await getPasscode();
+  if (!passcode){
+    widget = errorWidget("open this script in Scriptable to set the passcode");
   } else {
-    const photo = data.featured_photo?.url
-      ? await loadImage(data.featured_photo.url)
-      : null;
-    widget = buildWidget(data, photo);
+    const data = await loadData(passcode);
+    if (data && data.error){
+      if (data.error === "invalid passcode"){
+        // Wipe the stored passcode so the next manual run re-prompts.
+        try { Keychain.remove(PASSCODE_KEY); } catch (_) {}
+        widget = errorWidget("wrong passcode — open the script to re-enter");
+      } else {
+        widget = errorWidget(data.error);
+      }
+    } else {
+      const photo = data.featured_photo?.url
+        ? await loadImage(data.featured_photo.url)
+        : null;
+      widget = buildWidget(data, photo);
+    }
   }
 } catch (e){
   widget = errorWidget("couldn't reach the wall — check connection");
