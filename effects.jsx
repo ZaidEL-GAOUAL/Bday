@@ -128,13 +128,17 @@ function Sparkles({ count = 16, seed = 3 }){
 }
 
 // Ambient drifters — random emojis float in from all four sides every few
-// seconds, drift across the screen, then fade out. Cap concurrent drifters
-// so the page never gets visually noisy.
+// seconds. Clickable now: tap one and it pops into a small radial burst of
+// mini copies + a "+1" floater. Every 10 catches triggers a brief cheer.
 function AmbientDrift({ enabled = true, spawnEveryMs = 1800, maxConcurrent = 8 }){
   const [drifters, setDrifters] = React.useState([]);
+  const [pops, setPops] = React.useState([]);
+  const [score, setScore] = React.useState(0);
+  const [milestone, setMilestone] = React.useState(null);
+  const idRef = React.useRef(0);
+
   React.useEffect(() => {
     if (!enabled) return;
-    let id = 0;
     const KINDS = [
       "🎈","🎉","🎊","🥳","✨","🌟","💫","🎂","🍰","🎁","🎀",
       "✉️","🪁","🦋","🐦","🍃","💝","🌈","🍭","🍩","☘️","💌",
@@ -142,19 +146,16 @@ function AmbientDrift({ enabled = true, spawnEveryMs = 1800, maxConcurrent = 8 }
     const tick = () => {
       setDrifters(arr => {
         if (arr.length >= maxConcurrent) return arr;
-        const id2 = id++;
+        const id2 = ++idRef.current;
         const kind = KINDS[Math.floor(Math.random() * KINDS.length)];
         const from = ["left","right","top","bottom"][Math.floor(Math.random() * 4)];
-        const dur = 12 + Math.random() * 12;          // 12–24s
-        const scale = 0.6 + Math.random() * 0.8;       // 0.6–1.4
+        const dur = 12 + Math.random() * 12;
+        const scale = 0.6 + Math.random() * 0.8;
         const spin = Math.random() > 0.5 ? 1 : -1;
         const spinDeg = (10 + Math.random() * 30) * spin;
-        // Cross-axis start position (where on the entering edge it appears)
-        const cross = 5 + Math.random() * 90;          // 5–95 %
-        // Cross-axis drift (how much it wanders across as it crosses)
-        const drift = (Math.random() * 40 - 20);       // -20..+20 vw/vh
+        const cross = 5 + Math.random() * 90;
+        const drift = (Math.random() * 40 - 20);
         const d = { id: id2, kind, from, dur, scale, spinDeg, cross, drift };
-        // Self-cleanup
         setTimeout(() => setDrifters(a => a.filter(x => x.id !== id2)), dur * 1000);
         return [...arr, d];
       });
@@ -164,9 +165,6 @@ function AmbientDrift({ enabled = true, spawnEveryMs = 1800, maxConcurrent = 8 }
     return () => { clearTimeout(first); clearInterval(interval); };
   }, [enabled, spawnEveryMs, maxConcurrent]);
 
-  // Per-direction start/end positioning. The animation translates from
-  // start (just offscreen) to end (the opposite offscreen side), with a
-  // small wander on the perpendicular axis.
   const styleFor = (d) => {
     switch (d.from) {
       case "left":   return { top: `${d.cross}%`, left: "-12%",  start: "0,0",       end: `124vw,${d.drift}vh` };
@@ -177,20 +175,76 @@ function AmbientDrift({ enabled = true, spawnEveryMs = 1800, maxConcurrent = 8 }
     }
   };
 
+  const onCatch = (drifter, e) => {
+    e.stopPropagation();
+    setDrifters(arr => arr.filter(x => x.id !== drifter.id));
+    const pid = ++idRef.current;
+    const x = e.clientX, y = e.clientY;
+    setPops(arr => [...arr, { id: pid, x, y, kind: drifter.kind }]);
+    setTimeout(() => setPops(arr => arr.filter(p => p.id !== pid)), 1000);
+    setScore(s => {
+      const next = s + 1;
+      if (next % 10 === 0) {
+        const mid = ++idRef.current;
+        setMilestone({ id: mid, n: next });
+        setTimeout(() => setMilestone(m => m && m.id === mid ? null : m), 2400);
+      }
+      return next;
+    });
+  };
+
+  const PRAISES = [
+    "nice reflexes",
+    "you're a menace to confetti",
+    "the wall thanks you",
+    "do you ever miss one?",
+    "okay, show-off",
+    "🎉 keep going",
+  ];
+
   return (
     <div style={{position:"fixed", inset:0, pointerEvents:"none", zIndex: 15, overflow:"hidden"}}>
+      <style>{`
+        @keyframes drift-emoji-pop {
+          0%   { transform: translate(-50%, -50%) scale(.4); opacity: 1; }
+          100% { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(1.1); opacity: 0; }
+        }
+        @keyframes drift-emoji-plus {
+          0%   { transform: translate(-50%, 0px) scale(.8); opacity: 1; }
+          100% { transform: translate(-50%, -70px) scale(1.15); opacity: 0; }
+        }
+        @keyframes drift-emoji-milestone {
+          0%   { transform: translate(-50%, -50%) scale(.4) rotate(-6deg); opacity: 0; }
+          15%  { transform: translate(-50%, -50%) scale(1.08) rotate(2deg); opacity: 1; }
+          70%  { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
+          100% { transform: translate(-50%, -50%) scale(.9) rotate(0deg); opacity: 0; }
+        }
+      `}</style>
+
       {drifters.map(d => {
         const pos = styleFor(d);
         return (
-          <div key={d.id} style={{
-            position: "absolute",
-            top: pos.top,
-            left: pos.left,
-            fontSize: (24 * d.scale) + "px",
-            animation: `drift-${d.id} ${d.dur}s linear forwards`,
-            filter: "drop-shadow(0 2px 3px rgba(0,0,0,.12))",
-            willChange: "transform",
-          }}>
+          <button
+            key={d.id}
+            onClick={(e) => onCatch(d, e)}
+            aria-label={`catch ${d.kind}`}
+            title="catch it"
+            style={{
+              pointerEvents: "auto",
+              position: "absolute",
+              top: pos.top,
+              left: pos.left,
+              fontSize: (24 * d.scale) + "px",
+              animation: `drift-${d.id} ${d.dur}s linear forwards`,
+              filter: "drop-shadow(0 2px 3px rgba(0,0,0,.12))",
+              willChange: "transform",
+              background: "transparent",
+              border: 0,
+              padding: 6,
+              cursor: "pointer",
+              userSelect: "none",
+              lineHeight: 1,
+            }}>
             <style>{`
               @keyframes drift-${d.id} {
                 from { transform: translate(${pos.start}) rotate(${-d.spinDeg}deg); opacity: 0; }
@@ -200,9 +254,67 @@ function AmbientDrift({ enabled = true, spawnEveryMs = 1800, maxConcurrent = 8 }
               }
             `}</style>
             {d.kind}
-          </div>
+          </button>
         );
       })}
+
+      {pops.map(p => (
+        <div key={p.id} style={{
+          position: "fixed", left: p.x, top: p.y, pointerEvents: "none",
+        }}>
+          {[0, 60, 120, 180, 240, 300].map((angle, i) => {
+            const rad = angle * Math.PI / 180;
+            return (
+              <span key={i} style={{
+                position: "absolute",
+                fontSize: 22,
+                left: 0, top: 0,
+                animation: "drift-emoji-pop 900ms ease-out forwards",
+                "--dx": `${Math.cos(rad) * 56}px`,
+                "--dy": `${Math.sin(rad) * 56}px`,
+              }}>{p.kind}</span>
+            );
+          })}
+          <div className="h-display" style={{
+            position: "absolute", left: 0, top: -10,
+            fontSize: 22, color: "var(--tomato)",
+            textShadow: "0 2px 4px rgba(255,255,255,.6)",
+            animation: "drift-emoji-plus 900ms ease-out forwards",
+          }}>+1</div>
+        </div>
+      ))}
+
+      {milestone && (
+        <div style={{
+          position: "fixed", top: "30%", left: "50%",
+          pointerEvents: "none",
+          background: "color-mix(in oklch, var(--mustard) 90%, white 10%)",
+          border: "3px solid var(--ink)", borderRadius: 10,
+          padding: "16px 32px",
+          boxShadow: "0 18px 36px rgba(0,0,0,.28)",
+          animation: "drift-emoji-milestone 2400ms ease-out forwards",
+          textAlign: "center",
+        }}>
+          <div className="h-display" style={{fontSize: 42, color: "var(--ink)", lineHeight: 1}}>
+            caught {milestone.n}! 🎉
+          </div>
+          <div className="h-hand" style={{fontSize: 20, color: "var(--ink-soft)", marginTop: 4}}>
+            {PRAISES[Math.floor((milestone.n / 10 - 1) % PRAISES.length)]}
+          </div>
+        </div>
+      )}
+
+      {score > 0 && (
+        <div title="emojis caught" style={{
+          position: "fixed", bottom: 14, left: 14,
+          background: "rgba(20,12,8,.7)", color: "white",
+          padding: "4px 12px", borderRadius: 999,
+          fontFamily: "var(--mono)", fontSize: 11, letterSpacing: ".08em",
+          textTransform: "uppercase",
+          pointerEvents: "none",
+          backdropFilter: "blur(4px)",
+        }}>caught · {score}</div>
+      )}
     </div>
   );
 }
