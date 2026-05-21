@@ -71,7 +71,13 @@ function App(){
         day: p.birthday_day,
         vibe: p.vibe || "",
         memory: p.memory || "",
-        photoHue: p.photo_hue ?? 60,
+        // Derive the placeholder hue from the live color so changing color
+        // in the editor immediately repaints the card. Falls back to the
+        // stored photo_hue (set during seeding) if color is something the
+        // mapper doesn't recognise.
+        photoHue: (typeof window.pinHueFromColor === "function"
+          ? window.pinHueFromColor(p.color || "")
+          : (p.photo_hue ?? 60)),
         avatarUrl: p.avatarUrl || null,
         profile: p,
       }));
