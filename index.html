@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>The Birthday Wall</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --paper: oklch(96% 0.015 80);
+      --paper-2: oklch(93% 0.02 75);
+      --ink: oklch(22% 0.02 40);
+      --ink-soft: oklch(38% 0.02 40);
+      --tomato:   oklch(70% 0.16 30);
+      --mustard:  oklch(82% 0.13 80);
+      --mint:     oklch(78% 0.10 160);
+      --lavender: oklch(75% 0.09 300);
+      --sky:      oklch(78% 0.09 230);
+      --pink:     oklch(80% 0.10 0);
+      --tape: oklch(85% 0.05 80 / 0.55);
+      --display: "Bricolage Grotesque", system-ui, sans-serif;
+      --hand: "Caveat", "Comic Sans MS", cursive;
+      --mono: "JetBrains Mono", ui-monospace, monospace;
+    }
+    html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--display);overflow-x:hidden}
+    body{
+      background:
+        radial-gradient(1200px 800px at 10% -10%, oklch(94% 0.04 80) 0%, transparent 60%),
+        radial-gradient(900px 700px at 110% 10%, oklch(94% 0.04 30) 0%, transparent 55%),
+        radial-gradient(1100px 900px at 50% 110%, oklch(95% 0.03 230) 0%, transparent 60%),
+        var(--paper);
+      min-height:100vh;
+      position:relative;
+    }
+    /* gentle paper grain */
+    body::before{
+      content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+      background-image:
+        radial-gradient(rgba(0,0,0,.035) 1px, transparent 1px),
+        radial-gradient(rgba(0,0,0,.025) 1px, transparent 1px);
+      background-size: 3px 3px, 7px 7px;
+      background-position: 0 0, 1px 1px;
+      mix-blend-mode:multiply;opacity:.6;
+    }
+    /* corkboard pinholes / fibers */
+    body::after{
+      content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.35;
+      background-image:
+        repeating-linear-gradient(13deg, transparent 0 19px, rgba(120,80,40,.05) 19px 20px),
+        repeating-linear-gradient(-31deg, transparent 0 26px, rgba(120,80,40,.04) 26px 27px);
+    }
+    #root{position:relative;z-index:2}
+
+    /* utility */
+    .h-display{font-family:var(--display);font-weight:800;letter-spacing:-0.025em;line-height:.92}
+    .h-hand{font-family:var(--hand);font-weight:700}
+    .h-mono{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+
+    /* washi tape */
+    .tape{position:absolute;width:90px;height:22px;background:var(--tape);
+      box-shadow:0 2px 4px rgba(0,0,0,.08);
+      mix-blend-mode:multiply;
+      mask-image: linear-gradient(90deg, transparent 0, #000 6px, #000 calc(100% - 6px), transparent 100%);
+    }
+    .tape.t-mustard{background: oklch(82% 0.14 80 / .65)}
+    .tape.t-mint   {background: oklch(80% 0.12 160 / .55)}
+    .tape.t-tomato {background: oklch(75% 0.16 30 / .55)}
+    .tape.t-lav    {background: oklch(78% 0.10 300 / .55)}
+    .tape.t-sky    {background: oklch(80% 0.10 230 / .55)}
+    .tape::before{content:"";position:absolute;inset:0;
+      background:repeating-linear-gradient(90deg,transparent 0 8px,rgba(0,0,0,.06) 8px 9px);
+      opacity:.5;
+    }
+
+    /* hand-drawn underline */
+    .scribble{position:relative;display:inline-block}
+    .scribble::after{
+      content:"";position:absolute;left:-4px;right:-4px;bottom:-6px;height:10px;
+      background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 10' preserveAspectRatio='none'><path d='M2 6 Q 50 1 100 5 T 198 4' stroke='%23E4634A' stroke-width='3' fill='none' stroke-linecap='round'/></svg>") no-repeat;
+      background-size:100% 100%;
+    }
+
+    /* gentle idle wobble for cards */
+    @keyframes wobble{
+      0%,100%{transform: rotate(var(--rot,0deg)) translateY(0)}
+      50%{transform: rotate(calc(var(--rot,0deg) + 0.6deg)) translateY(-2px)}
+    }
+    .wobble{animation: wobble var(--wob-dur,7s) ease-in-out infinite;animation-delay:var(--wob-delay,0s)}
+
+    /* close-to-birthday pulse */
+    @keyframes glowpulse{
+      0%,100%{box-shadow:0 10px 22px rgba(0,0,0,.10), 0 0 0 0 oklch(75% 0.16 30 / .0)}
+      50%{box-shadow:0 14px 28px rgba(0,0,0,.14), 0 0 0 14px oklch(75% 0.16 30 / .18)}
+    }
+    .glow{animation: glowpulse 1.8s ease-in-out infinite}
+
+    /* hover lift */
+    .lift{transition: transform .25s cubic-bezier(.2,.9,.3,1.3), box-shadow .25s, filter .25s}
+    .lift:hover{transform: rotate(0deg) translateY(-6px) scale(1.03) !important; box-shadow:0 22px 36px rgba(0,0,0,.16); z-index:5; filter:saturate(1.1)}
+
+    /* sticky note paper */
+    .sticky{
+      position:relative;
+      border-radius:3px;
+      padding:18px 18px 20px;
+      box-shadow: 0 10px 22px rgba(0,0,0,.10), 0 2px 4px rgba(0,0,0,.06);
+      background: linear-gradient(180deg, color-mix(in oklch, var(--note-bg, var(--mustard)) 100%, white 0%) 0%, color-mix(in oklch, var(--note-bg, var(--mustard)) 90%, black 5%) 100%);
+    }
+    .sticky::after{ /* lifted corner */
+      content:"";position:absolute;right:0;bottom:0;width:22px;height:22px;
+      background:linear-gradient(135deg, transparent 50%, rgba(0,0,0,.08) 50%);
+    }
+    .polaroid{
+      background:#fbfaf3;
+      padding:10px 10px 38px;
+      box-shadow:0 12px 24px rgba(0,0,0,.14), 0 2px 4px rgba(0,0,0,.08);
+      border-radius:2px;
+    }
+    .photo{aspect-ratio:1/1;background:
+      repeating-linear-gradient(45deg, oklch(85% 0.05 var(--photo-hue, 80)) 0 10px, oklch(80% 0.05 var(--photo-hue, 80)) 10px 20px);
+      display:flex;align-items:flex-end;justify-content:flex-start;padding:8px;
+      font-family:var(--mono);font-size:9px;color:rgba(0,0,0,.45);
+      border-radius:1px;
+    }
+
+    /* confetti pieces */
+    .confetti{position:absolute;pointer-events:none;will-change:transform,opacity}
+    @keyframes fall{
+      0%{transform:translate3d(0,-20vh,0) rotate(0)}
+      100%{transform:translate3d(var(--drift,0),110vh,0) rotate(var(--spin,720deg))}
+    }
+    @keyframes wiggle{
+      0%,100%{transform: translateX(0) rotate(-3deg)}
+      50%{transform: translateX(4px) rotate(4deg)}
+    }
+    /* big party mode background */
+    .party-bg{
+      position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:
+        radial-gradient(60% 80% at 50% 30%, oklch(80% 0.14 30) 0%, oklch(70% 0.18 20) 60%, oklch(50% 0.18 20) 100%);
+      mix-blend-mode: multiply;
+      opacity:0;
+      transition:opacity 1.2s ease;
+    }
+    .party .party-bg{opacity:.9}
+    .party body, .party{}
+
+    /* big wobbly text */
+    @keyframes party-wobble{
+      0%,100%{transform: rotate(-2deg) scale(1)}
+      25%{transform: rotate(2deg) scale(1.02)}
+      50%{transform: rotate(-1deg) scale(1.04)}
+      75%{transform: rotate(3deg) scale(1.01)}
+    }
+    .partytext{animation: party-wobble 1.6s ease-in-out infinite}
+
+    /* balloon */
+    @keyframes floatup{
+      0%{transform:translate3d(0,110vh,0) rotate(-4deg)}
+      100%{transform:translate3d(var(--bx,40px),-20vh,0) rotate(4deg)}
+    }
+    .balloon{position:fixed;bottom:0;width:54px;height:68px;border-radius:50% 50% 48% 48%;
+      filter:drop-shadow(0 6px 6px rgba(0,0,0,.15));pointer-events:auto;cursor:pointer;z-index:10}
+    .balloon::before{content:"";position:absolute;left:50%;bottom:-2px;width:14px;height:8px;background:inherit;
+      clip-path:polygon(0 0,100% 0,80% 100%,20% 100%);transform:translateX(-50%)}
+    .balloon::after{content:"";position:absolute;left:50%;top:100%;width:1px;height:120px;
+      background:rgba(0,0,0,.35);transform-origin:top}
+
+    /* sparkle */
+    @keyframes twinkle{0%,100%{transform:scale(.6);opacity:.2}50%{transform:scale(1.2);opacity:1}}
+    .twink{position:absolute;width:10px;height:10px;
+      background:radial-gradient(circle, oklch(95% 0.12 80) 0 30%, transparent 60%);
+      animation: twinkle 2.6s ease-in-out infinite;pointer-events:none}
+
+    /* hidden corner button */
+    .secret{position:fixed;right:14px;top:14px;width:34px;height:34px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;cursor:pointer;
+      background:transparent;border:0;font-size:20px;z-index:50;
+      transition: transform .3s;
+    }
+    .secret:hover{transform:rotate(20deg) scale(1.2)}
+
+    /* scrolling marquee for super-close birthdays */
+    @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+    .marquee{display:flex;white-space:nowrap;animation:marquee 22s linear infinite;will-change:transform}
+
+    /* cake */
+    .cake{position:relative;width:160px;height:120px;margin:0 auto}
+    .cake-base{position:absolute;left:0;right:0;bottom:0;height:60px;background:#f6c89f;border-radius:8px;
+      box-shadow:inset 0 6px 0 #efb37e, 0 10px 0 #c4825b}
+    .cake-top{position:absolute;left:10px;right:10px;bottom:55px;height:30px;background:#fff4e0;border-radius:6px;
+      box-shadow:inset 0 4px 0 #ffe6c2}
+    .cake-drip{position:absolute;left:8px;right:8px;bottom:78px;height:14px;background:oklch(70% 0.16 30);
+      border-radius:8px 8px 14px 14px / 6px 6px 14px 14px;
+      clip-path:polygon(0 0,100% 0,100% 60%,92% 100%,85% 60%,75% 95%,65% 60%,55% 100%,45% 65%,35% 100%,25% 60%,15% 95%,8% 60%,0 100%);
+    }
+    .candle{position:absolute;bottom:88px;width:6px;height:22px;background:repeating-linear-gradient(180deg, oklch(80% 0.10 230) 0 6px, white 6px 12px);border-radius:1px}
+    .flame{position:absolute;width:10px;height:14px;border-radius:60% 60% 50% 50% / 80% 80% 30% 30%;
+      background:radial-gradient(circle at 50% 70%, oklch(95% 0.18 90), oklch(80% 0.22 50) 70%);
+      transform:translate(-2px, -14px); animation: flicker .4s infinite alternate;
+      filter:drop-shadow(0 0 6px oklch(85% 0.18 70 / .8))}
+    @keyframes flicker{from{transform:translate(-2px,-14px) scale(1) rotate(-2deg)}to{transform:translate(-2px,-16px) scale(1.08) rotate(3deg)}}
+
+    /* dialog */
+    .modal-bd{position:fixed;inset:0;background:rgba(20,12,8,.45);backdrop-filter:blur(2px);z-index:80;display:flex;align-items:center;justify-content:center}
+    .modal{max-width:520px;width:90%;background:#fbfaf3;border-radius:6px;padding:28px 30px 30px;position:relative;
+      box-shadow:0 30px 60px rgba(0,0,0,.3); transform:rotate(-1deg)}
+    .modal .pin{position:absolute;top:-8px;left:50%;transform:translateX(-50%);
+      width:18px;height:18px;border-radius:50%;
+      background:radial-gradient(circle at 35% 35%, oklch(85% 0.18 30), oklch(55% 0.18 30));
+      box-shadow:0 4px 6px rgba(0,0,0,.25)}
+
+    /* button */
+    .btn{font-family:var(--display);font-weight:700;font-size:14px;
+      padding:10px 16px;border-radius:999px;border:2px solid var(--ink);
+      background:var(--mustard);cursor:pointer;color:var(--ink);
+      box-shadow:0 4px 0 var(--ink);
+      transition:transform .12s, box-shadow .12s}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 6px 0 var(--ink)}
+    .btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+    .btn.ghost{background:transparent}
+
+    /* pin */
+    .pin-dot{position:absolute;top:-6px;left:50%;transform:translateX(-50%);
+      width:14px;height:14px;border-radius:50%;
+      background:radial-gradient(circle at 35% 35%, oklch(90% 0.10 var(--pin-h, 30)), oklch(50% 0.18 var(--pin-h, 30)));
+      box-shadow:0 3px 4px rgba(0,0,0,.25); z-index:2}
+
+    /* timeline rail */
+    .rail{height:2px;background:repeating-linear-gradient(90deg, var(--ink) 0 6px, transparent 6px 12px);position:relative}
+    .rail-dot{position:absolute;top:-8px;width:18px;height:18px;border-radius:50%;
+      background:var(--paper);border:2px solid var(--ink); transform:translateX(-50%)}
+
+    /* loud / quiet text scaling helpers */
+    .quiet{opacity:.65}
+    .loud{font-weight:800}
+
+    /* keep tweak panel above */
+    .twk-panel{z-index:2147483646 !important}
+
+    /* fade-in for spotlight / memory shuffle when they rotate */
+    @keyframes ww-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    .ww-fade{animation: ww-fade .45s ease both}
+
+    @media (max-width: 720px){
+      .hide-mobile{display:none}
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script>
+    window.SUPABASE_URL = "https://adgqourcxbjkupdrqpyt.supabase.co";
+    window.SUPABASE_ANON_KEY = "sb_publishable_SDf6CKA_DJR1uMNJk1SOeg_1kXRRpls";
+    window.SUPABASE_BUCKET = "bday-media";
+    window.sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        // OAuth callback lands with #access_token=… in the URL hash. supabase-js
+        // needs this true to pick it up and persist the session.
+        detectSessionInUrl: true,
+        flowType: "pkce",
+      },
+    });
+  </script>
+
+  <!--
+    Cache-bust query parameter. Bump this on every client-side change so
+    visitors don't keep running stale JSX from their browser cache. A
+    plain version counter is enough — babel-standalone passes the
+    querystring through when it fetches the file.
+  -->
+  <script>window.BW_ASSET_V = "2026-05-21-h";</script>
+  <script type="text/babel" src="tweaks-panel.jsx?v=2026-05-21-h"></script>
+  <script type="text/babel" src="data.jsx?v=2026-05-21-h"></script>
+  <script type="text/babel" src="effects.jsx?v=2026-05-21-h"></script>
+  <script type="text/babel" src="auth.jsx?v=2026-05-21-h"></script>
+  <script type="text/babel" src="identity.jsx?v=2026-05-21-h"></script>
+  <script type="text/babel" src="media.jsx?v=2026-05-21-h"></script>
+  <script type="text/babel" src="cards.jsx?v=2026-05-21-h"></script>
+  <script type="text/babel" src="filler.jsx?v=2026-05-21-h"></script>
+  <script type="text/babel" src="app.jsx?v=2026-05-21-h"></script>
+</body>
+</html>

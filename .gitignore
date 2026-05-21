@@ -1,0 +1,12 @@
+.claude/
+.DS_Store
+
+# Local agent/tooling — none of this needs to live in the repo.
+.mcp.json
+.agents/
+skills-lock.json
+
+# Just in case
+.env
+.env.local
+*.local
