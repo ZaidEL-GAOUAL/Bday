@@ -304,18 +304,25 @@ function App(){
       )}
 
       {/* CARD MODAL */}
-      {selected && (
+      {selected && (() => {
+        // Live-derive the friend object so realtime edits from other users
+        // (memory rewrites, color/name changes, locked/unlocked uploads) show
+        // up immediately instead of being frozen to whatever was on screen
+        // when the modal first opened.
+        const liveSelected = friendsWithDays.find(f => f.friend_key === selected.friend_key) || selected;
+        return (
         <MemoryModal
-          friend={selected}
-          days={selected.days}
+          friend={liveSelected}
+          days={liveSelected.days}
           onClose={() => setSelected(null)}
-          media={byFriend[selected.friend_key]}
+          media={byFriend[liveSelected.friend_key]}
           addFiles={addFiles}
           removeMedia={removeMedia}
           updateCaption={updateCaption}
           onOpenLightbox={(it) => setLightbox(it)}
         />
-      )}
+        );
+      })()}
 
       {/* LIGHTBOX */}
       {lightbox && (
