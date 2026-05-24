@@ -301,25 +301,46 @@ function App(){
                       onClick={() => setSelected(f)}
                       media={byFriend[f.friend_key]}
                     />
-                    {f._justMissed && (
-                      <div style={{
-                        position:"absolute",
-                        top: 6,
-                        left: "50%",
-                        transform:"translateX(-50%) rotate(-6deg)",
-                        background: "var(--ink)",
-                        color: "var(--paper)",
-                        fontFamily: "var(--hand)",
-                        fontSize: 20,
-                        lineHeight: 1,
-                        padding: "4px 14px 5px",
-                        borderRadius: 4,
-                        boxShadow: "0 4px 0 rgba(0,0,0,.25)",
-                        zIndex: 6,
-                        pointerEvents: "none",
-                        whiteSpace: "nowrap",
-                      }}>just missed!</div>
-                    )}
+                    {f._justMissed && (() => {
+                      const LINES = [
+                        "they noticed 👀",
+                        "rip you",
+                        "oops",
+                        "you blew it 🎂",
+                        "should've texted",
+                        "11 months to plan",
+                        "they're keeping score",
+                        "send a late one rn",
+                        "next year, hero",
+                        "in your defense: nothing",
+                        "ouch.",
+                      ];
+                      const hash = (f.day * 31 + f.month * 17 + (f.friend_key || "").length) >>> 0;
+                      const line = LINES[hash % LINES.length];
+                      const tilt = ((hash % 9) - 4);
+                      return (
+                        <div style={{
+                          position:"absolute",
+                          top: -10,
+                          left: "50%",
+                          transform: `translateX(-50%) rotate(${tilt}deg)`,
+                          background: "var(--tomato)",
+                          color: "#fff",
+                          fontFamily: "var(--hand)",
+                          fontWeight: 700,
+                          fontSize: 22,
+                          lineHeight: 1,
+                          padding: "6px 16px 7px",
+                          borderRadius: 4,
+                          border: "2px solid var(--ink)",
+                          boxShadow: "0 5px 0 var(--ink)",
+                          zIndex: 6,
+                          pointerEvents: "none",
+                          whiteSpace: "nowrap",
+                          textShadow: "0 1px 0 rgba(0,0,0,.2)",
+                        }}>{line}</div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
