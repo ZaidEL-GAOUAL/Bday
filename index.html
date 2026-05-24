@@ -245,6 +245,26 @@
     @keyframes ww-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
     .ww-fade{animation: ww-fade .45s ease both}
 
+    /* disco ball + pixel moonwalk */
+    @keyframes disco-spin {
+      0%   { transform: rotate(0deg)   scale(1); filter: hue-rotate(0deg); }
+      50%  { transform: rotate(180deg) scale(1.04); filter: hue-rotate(30deg); }
+      100% { transform: rotate(360deg) scale(1); filter: hue-rotate(0deg); }
+    }
+    @keyframes mj-bob {
+      0%, 100% { transform: translateY(0) skewX(0); }
+      50%      { transform: translateY(-3px) skewX(-1deg); }
+    }
+    @keyframes moonwalk {
+      0%   { right: -120px; }
+      100% { right: calc(100vw + 80px); }
+    }
+    @keyframes note-float {
+      0%   { transform: translateY(0)   translateX(0)            rotate(-10deg); opacity: 0; }
+      10%  { opacity: 1; }
+      100% { transform: translateY(-80vh) translateX(var(--sway, 0)) rotate(15deg);  opacity: 0; }
+    }
+
     @media (max-width: 720px){
       .hide-mobile{display:none}
     }
@@ -288,6 +308,7 @@
   <script type="text/babel" src="media.jsx?v=2026-05-21-m"></script>
   <script type="text/babel" src="cards.jsx?v=2026-05-21-m"></script>
   <script type="text/babel" src="filler.jsx?v=2026-05-21-m"></script>
+  <script type="text/babel" src="dance.jsx?v=2026-05-21-m"></script>
   <script type="text/babel" src="app.jsx?v=2026-05-21-m"></script>
 </body>
 </html>

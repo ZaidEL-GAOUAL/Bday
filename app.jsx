@@ -497,8 +497,11 @@ function SignedInChip({ onEdit }){
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <AuthProvider>
-    <AuthGate>
-      <App />
-    </AuthGate>
+    <>
+      <DanceFloor />
+      <AuthGate>
+        <App />
+      </AuthGate>
+    </>
   </AuthProvider>
 );
