@@ -257,7 +257,24 @@ function App(){
           </section>
 
           {/* MONTH-BY-MONTH wall */}
-          {monthOrder.map(m => (
+          {monthOrder.map(m => {
+            // For the current month: separate friends whose birthday already
+            // passed this month from those still upcoming. Show upcoming first,
+            // passed at the end (greyed) so they don't look like immediate plans.
+            const isCurrentMonth = m === today.getMonth();
+            const todayDate = today.getDate();
+            let monthList;
+            if (isCurrentMonth) {
+              const upcoming = byMonth[m].filter(f => f.day >= todayDate).sort((a,b) => a.day - b.day);
+              const passed = byMonth[m]
+                .filter(f => f.day < todayDate)
+                .sort((a,b) => a.day - b.day)
+                .map(f => ({...f, _justMissed: true}));
+              monthList = [...upcoming, ...passed];
+            } else {
+              monthList = byMonth[m];
+            }
+            return (
             <section key={m} style={{marginBottom: 56}}>
               <MonthLabel m={m} count={byMonth[m].length} />
               <div style={{
@@ -266,8 +283,15 @@ function App(){
                 gap: "32px 28px",
                 paddingTop: 10,
               }}>
-                {byMonth[m].map((f) => (
-                  <div key={f.friend_key} style={{display:"flex", justifyContent:"center"}}>
+                {monthList.map((f) => (
+                  <div key={f.friend_key} style={{
+                    display:"flex",
+                    justifyContent:"center",
+                    position:"relative",
+                    opacity: f._justMissed ? 0.55 : 1,
+                    filter: f._justMissed ? "grayscale(.35)" : "none",
+                    transition: "opacity .3s, filter .3s",
+                  }}>
                     <FriendCard
                       friend={f}
                       days={f.days}
@@ -277,11 +301,31 @@ function App(){
                       onClick={() => setSelected(f)}
                       media={byFriend[f.friend_key]}
                     />
+                    {f._justMissed && (
+                      <div style={{
+                        position:"absolute",
+                        top: 6,
+                        left: "50%",
+                        transform:"translateX(-50%) rotate(-6deg)",
+                        background: "var(--ink)",
+                        color: "var(--paper)",
+                        fontFamily: "var(--hand)",
+                        fontSize: 20,
+                        lineHeight: 1,
+                        padding: "4px 14px 5px",
+                        borderRadius: 4,
+                        boxShadow: "0 4px 0 rgba(0,0,0,.25)",
+                        zIndex: 6,
+                        pointerEvents: "none",
+                        whiteSpace: "nowrap",
+                      }}>just missed!</div>
+                    )}
                   </div>
                 ))}
               </div>
             </section>
-          ))}
+          );
+          })}
 
           {/* FOOTER */}
           <footer style={{textAlign:"center", marginTop: 60, padding: "24px 0", borderTop:"1.5px dashed var(--ink)"}}>
