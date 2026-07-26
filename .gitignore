@@ -6,6 +6,9 @@
 .agents/
 skills-lock.json
 
+# Node / Convex
+node_modules/
+
 # Just in case
 .env
 .env.local
