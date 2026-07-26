@@ -89,12 +89,23 @@ function AuthProvider({ children }) {
   );
 
   const joinMut = useConvexMutation("groups:join");
+  const autoJoinMut = useConvexMutation("groups:autoJoinByEmail");
   const claimMut = useConvexMutation("profiles:claim");
   const updateMut = useConvexMutation("profiles:update");
   const memoryMut = useConvexMutation("profiles:setMemory");
   const avatarUrlMut = useConvexMutation("profiles:generateAvatarUploadUrl");
   const setAvatarMut = useConvexMutation("profiles:setAvatar");
   const clearAvatarMut = useConvexMutation("profiles:clearAvatar");
+
+  // Returning member? Match on the verified Google address and put them
+  // straight back on their profile — no passcode, no picker. Runs once as
+  // soon as we know they're signed in without a group.
+  const autoJoinTried = React.useRef(false);
+  React.useEffect(() => {
+    if (!me?.signedIn || groupId || autoJoinTried.current) return;
+    autoJoinTried.current = true;
+    autoJoinMut({}).catch((e) => console.warn("auto-join skipped", cleanError(e)));
+  }, [me?.signedIn, groupId, autoJoinMut]);
 
   // Replay a passcode entered before sign-in, once the session exists.
   React.useEffect(() => {

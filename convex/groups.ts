@@ -54,6 +54,51 @@ export const me = query({
 });
 
 /**
+ * "Use the same gmail, we'll find you" — no passcode required.
+ *
+ * Anyone who had already claimed a profile carries their email on it (brought
+ * over from Supabase, where claimed_by was a user id that means nothing to
+ * Clerk). Matching on the email lets every existing member keep their profile
+ * and skip setup entirely.
+ *
+ * Access is granted on three conditions, all required:
+ *   - Google asserted the address and Clerk marked it verified
+ *   - a profile in that group is already reserved for exactly that address
+ *   - nobody has claimed it under Clerk yet
+ *
+ * So this can only ever re-admit someone who was demonstrably already a
+ * member. A stranger's Google account matches nothing and gets nowhere.
+ */
+export const autoJoinByEmail = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.email) return { joined: false as const };
+    // Unverified addresses are not proof of anything.
+    if (identity.emailVerified === false) return { joined: false as const };
+
+    if (await getMembership(ctx, identity.subject)) {
+      return { joined: false as const, already: true };
+    }
+
+    const email = identity.email.trim().toLowerCase();
+    const reserved = (await ctx.db.query("profiles").collect()).find(
+      (p) => !p.claimedBy && (p.claimedEmail ?? "").trim().toLowerCase() === email,
+    );
+    if (!reserved) return { joined: false as const };
+
+    await ctx.db.insert("memberships", {
+      userId: identity.subject,
+      groupId: reserved.groupId,
+      joinedAt: Date.now(),
+    });
+    await ctx.db.patch(reserved._id, { claimedBy: identity.subject });
+
+    return { joined: true as const, profileId: reserved._id };
+  },
+});
+
+/**
  * Redeem a passcode to join its group. Idempotent: re-submitting the same
  * passcode when already a member is a no-op rather than an error.
  */

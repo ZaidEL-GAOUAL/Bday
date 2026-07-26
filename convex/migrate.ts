@@ -38,6 +38,10 @@ type SupabaseProfile = {
   birthday_day: number | null;
   custom: boolean | null;
   avatar_path: string | null;
+  // The bridge between the two identity systems. Supabase auth user ids are
+  // meaningless to Clerk, but the email is the same person either way, so
+  // this is what lets everyone keep their profile without re-claiming it.
+  claimed_email: string | null;
 };
 
 type SupabaseMedia = {
@@ -112,6 +116,7 @@ export const run = internalAction({
         birthdayMonth: p.birthday_month ?? undefined,
         birthdayDay: p.birthday_day ?? undefined,
         custom: !!p.custom,
+        claimedEmail: p.claimed_email ?? undefined,
         avatarId,
       });
       profileMap[p.id] = newId;
@@ -214,6 +219,7 @@ export const upsertProfile = internalMutation({
     birthdayMonth: v.optional(v.number()),
     birthdayDay: v.optional(v.number()),
     custom: v.boolean(),
+    claimedEmail: v.optional(v.string()),
     avatarId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
