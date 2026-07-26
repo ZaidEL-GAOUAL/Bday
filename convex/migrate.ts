@@ -41,7 +41,8 @@ type SupabaseProfile = {
   // The bridge between the two identity systems. Supabase auth user ids are
   // meaningless to Clerk, but the email is the same person either way, so
   // this is what lets everyone keep their profile without re-claiming it.
-  claimed_email: string | null;
+  // NB: the column is `email`, not `claimed_email`.
+  email: string | null;
 };
 
 type SupabaseMedia = {
@@ -58,6 +59,33 @@ type SupabaseMedia = {
   locked: boolean | null;
   added_at: string | null;
 };
+
+/**
+ * Diagnostic: dump the real column names and claim state from Supabase.
+ * Read-only — used to work out why claimed_email came back empty.
+ */
+export const inspect = internalAction({
+  args: {},
+  handler: async () => {
+    const base = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_KEY;
+    if (!base || !key) throw new Error("SUPABASE_URL / SUPABASE_SERVICE_KEY not set");
+
+    const res = await fetch(`${base}/rest/v1/profiles?select=*`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    });
+    const rows = (await res.json()) as Record<string, unknown>[];
+    if (!Array.isArray(rows) || !rows.length) return ["no rows", JSON.stringify(rows)];
+
+    const columns = Object.keys(rows[0]);
+    const claimish = columns.filter((c) => /claim|email|user|owner/i.test(c));
+    const summary = rows.map((r) => {
+      const bits = claimish.map((c) => `${c}=${JSON.stringify(r[c])}`).join(" ");
+      return `${r.display_name}: ${bits}`;
+    });
+    return [`columns: ${columns.join(", ")}`, ...summary];
+  },
+});
 
 export const run = internalAction({
   args: { dryRun: v.optional(v.boolean()), groupSlug: v.optional(v.string()) },
@@ -116,7 +144,7 @@ export const run = internalAction({
         birthdayMonth: p.birthday_month ?? undefined,
         birthdayDay: p.birthday_day ?? undefined,
         custom: !!p.custom,
-        claimedEmail: p.claimed_email ?? undefined,
+        claimedEmail: p.email ?? undefined,
         avatarId,
       });
       profileMap[p.id] = newId;
