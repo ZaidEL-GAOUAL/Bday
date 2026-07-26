@@ -145,17 +145,18 @@ function AuthProvider({ children }) {
 
   const signInWithGoogle = React.useCallback(async () => {
     const clerkJs = await loadClerk();
-    const redirect = window.location.href;
-    try {
-      await clerkJs.client.signIn.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: redirect,
-        redirectUrlComplete: redirect,
-      });
-    } catch (_) {
-      // Falls back to the hosted widget if the direct strategy is unavailable.
-      clerkJs.openSignIn({ afterSignInUrl: redirect, afterSignUpUrl: redirect });
-    }
+    const here = window.location.origin + window.location.pathname;
+    // openSignIn rather than signIn.authenticateWithRedirect: the latter only
+    // works for an account that already exists on the Clerk instance, and
+    // throws for a first-time visitor instead of transferring to sign-up.
+    // Everyone here is a first-time visitor, so that path was always going to
+    // fail. openSignIn handles sign-in, sign-up and the transfer between them.
+    // Google is the only social provider enabled, so it renders as one button.
+    clerkJs.openSignIn({
+      afterSignInUrl: here,
+      afterSignUpUrl: here,
+      redirectUrl: here,
+    });
   }, []);
 
   const pickProfile = React.useCallback(

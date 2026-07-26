@@ -41,12 +41,31 @@ async function fetchConvexToken({ forceRefreshToken } = {}) {
 let _clerkLoad = null;
 function loadClerk() {
   if (!_clerkLoad) {
-    _clerkLoad = window.Clerk.load({ afterSignOutUrl: window.location.href })
-      .then(() => window.Clerk)
-      .catch((e) => {
-        _clerkLoad = null;
-        throw e;
-      });
+    _clerkLoad = (async () => {
+      const here = window.location.origin + window.location.pathname;
+      await window.Clerk.load({ afterSignOutUrl: here });
+
+      // Finish an in-flight OAuth redirect. Clerk sends the browser back with
+      // __clerk_* params and expects this call to complete the handshake;
+      // without it the session is created and then silently dropped, which
+      // looks exactly like "signing in did nothing".
+      if (/__clerk/.test(window.location.search)) {
+        try {
+          await window.Clerk.handleRedirectCallback({
+            afterSignInUrl: here,
+            afterSignUpUrl: here,
+          });
+        } catch (e) {
+          console.warn("Clerk redirect callback failed", e);
+        }
+        // Drop the params so a refresh doesn't replay the handler.
+        window.history.replaceState({}, "", here + window.location.hash);
+      }
+      return window.Clerk;
+    })().catch((e) => {
+      _clerkLoad = null;
+      throw e;
+    });
   }
   return _clerkLoad;
 }
