@@ -164,6 +164,22 @@ export const generateAvatarUploadUrl = mutation({
   },
 });
 
+export const clearAvatar = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const { profile } = await requireProfile(ctx);
+    if (profile.avatarId) {
+      try {
+        await ctx.storage.delete(profile.avatarId);
+      } catch {
+        // Already gone.
+      }
+    }
+    await ctx.db.patch(profile._id, { avatarId: undefined });
+    return "ok";
+  },
+});
+
 export const setAvatar = mutation({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, { storageId }) => {

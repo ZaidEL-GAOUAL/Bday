@@ -1,6 +1,6 @@
 // data.jsx — date helpers + month constants. No personal data lives here
 // anymore; the friend list is loaded at runtime from public.profiles. The
-// initial seed values are kept in Supabase migrations, not in this file.
+// friend list is loaded at runtime from the Convex profiles table.
 
 function startOfDay(d){ const x = new Date(d); x.setHours(0,0,0,0); return x; }
 function daysUntilBirthday(friend, today){

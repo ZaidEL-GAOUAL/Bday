@@ -63,8 +63,7 @@
 <body>
   <div id="root"></div>
   <script>
-    const SUPABASE_URL = "https://adgqourcxbjkupdrqpyt.supabase.co";
-    const ANON_KEY = "sb_publishable_SDf6CKA_DJR1uMNJk1SOeg_1kXRRpls";
+    const CONVEX_SITE_URL = "https://energetic-retriever-143.convex.site";
     const KEY = "bw-widget-passcode";
 
     function colorFromCss(c){
@@ -89,13 +88,9 @@
     }
 
     async function loadData(passcode){
-      const r = await fetch(SUPABASE_URL + "/functions/v1/widget-data", {
+      const r = await fetch(CONVEX_SITE_URL + "/widget-data", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": ANON_KEY,
-          "Authorization": "Bearer " + ANON_KEY,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ passcode }),
       });
       const data = await r.json().catch(() => null);

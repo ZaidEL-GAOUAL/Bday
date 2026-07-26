@@ -588,9 +588,7 @@ function ProfileEditor({ open, onClose }){
   const onAvatarClear = async () => {
     setBusy(true); setError("");
     try {
-      if (profile.avatar_path) {
-        try { await window.sb.storage.from(window.SUPABASE_BUCKET).remove([profile.avatar_path]); } catch(_){}
-      }
+      // The blob is deleted server-side by profiles:clearAvatar.
       await updateProfile({ avatar_path: null });
     } catch(err){ setError(err?.message || "couldn't clear"); }
     finally { setBusy(false); }

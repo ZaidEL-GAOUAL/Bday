@@ -1,15 +1,14 @@
-// media.jsx — Supabase-backed photo/video scrapbook.
-// All access goes through the authenticated client. Storage is private:
-// reads use short-lived signed URLs, writes require a profile-bearing JWT.
+// media.jsx — Convex-backed photo/video scrapbook.
+// Files are never exposed as raw storage URLs: convex/media.ts hands back
+// short-lived signed paths that stream through an authenticated HTTP action,
+// preserving the private-bucket behaviour the Supabase version had.
 // The passcode gate / profile picker live in identity.jsx.
 
-const BUCKET = window.SUPABASE_BUCKET || "bday-media";
-const MAX_PER_FRIEND = 10;         // hard cap per friend; enforced server-side via trigger
-const SIGNED_URL_TTL = 60 * 60;    // 1 hour
-// With client-side compression in place, allow chunkier uploads. Compression
-// usually keeps things well under this; the cap is the safety net for very
-// long clips or files that fail to transcode.
-const MAX_UPLOAD_BYTES = 30 * 1024 * 1024;
+const MAX_PER_FRIEND = 10;         // hard cap per friend; enforced in convex/media.ts
+// Convex HTTP actions cannot return more than 20 MB, and every file is served
+// through one so that links stay revocable — hence 19 rather than the old 30.
+// Client-side compression keeps almost everything well under this anyway.
+const MAX_UPLOAD_BYTES = 19 * 1024 * 1024;
 
 function formatBytes(n){
   if (n < 1024) return n + " B";
@@ -146,70 +145,29 @@ function extFromType(type, fallback){
   return map[type] || (type && type.split("/")[1]) || fallback || "bin";
 }
 
-async function signedUrlFor(path){
-  try {
-    const { data, error } = await window.sb.storage.from(BUCKET).createSignedUrl(path, SIGNED_URL_TTL);
-    if (error) return "";
-    return data?.signedUrl || "";
-  } catch(_){ return ""; }
-}
-
-function rowToItem(row){
-  return {
-    id: row.id,
-    friend: row.friend,
-    kind: row.kind,
-    type: row.type,
-    name: row.name,
-    path: row.path,
-    caption: row.caption || "",
-    author: row.author || "",
-    profileId: row.profile_id || null,
-    groupId: row.group_id || null,
-    locked: !!row.locked,
-    addedAt: row.added_at ? new Date(row.added_at).getTime() : Date.now(),
-    url: "",
-  };
-}
-
 function useMediaStore(){
   const auth = useAuth();
-  const [items, setItems] = React.useState([]);
-  const [ready, setReady] = React.useState(false);
-  const itemsRef = React.useRef([]);
-  itemsRef.current = items;
+  const urlWindow = useUrlWindow();
 
-  const reload = React.useCallback(async () => {
-    if (!auth?.isUnlocked){ setItems([]); setReady(true); return; }
-    try {
-      const { data, error } = await window.sb
-        .from("media")
-        .select("*")
-        .order("added_at", { ascending: false });
-      if (error) throw error;
-      const rows = (data || []).map(rowToItem);
-      await Promise.all(rows.map(async r => { r.url = await signedUrlFor(r.path); }));
-      setItems(rows);
-    } catch(e){
-      console.warn("media load failed", e);
-    } finally {
-      setReady(true);
-    }
-  }, [auth?.isUnlocked]);
+  // Live subscription. Convex pushes a new list whenever anyone in the group
+  // uploads, deletes or edits — which is why the old realtime channel and the
+  // manual reload() calls that went with it are gone.
+  const mediaQ = useConvexQuery("media:list", auth?.isUnlocked ? { urlWindow } : "skip");
 
-  React.useEffect(() => { reload(); }, [reload]);
+  const items = React.useMemo(
+    () => (mediaQ.data || []).map(m => ({ ...m, url: window.fileUrl(m.url) })),
+    [mediaQ.data]
+  );
+  const ready = !auth?.isUnlocked || mediaQ.data !== undefined;
 
-  // Realtime — when anyone uploads/edits in this group, everyone sees it.
-  React.useEffect(() => {
-    if (!auth?.isUnlocked) return;
-    const ch = window.sb
-      .channel(`media-stream-${auth.groupId}`)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "media", filter: `group_id=eq.${auth.groupId}` },
-        () => reload())
-      .subscribe();
-    return () => { try { window.sb.removeChannel(ch); } catch(_){} };
-  }, [reload, auth?.isUnlocked, auth?.groupId]);
+  const uploadUrlMut  = useConvexMutation("media:generateUploadUrl");
+  const addMut        = useConvexMutation("media:add");
+  const removeMut     = useConvexMutation("media:remove");
+  const captionMut    = useConvexMutation("media:setCaption");
+  const lockMut       = useConvexMutation("media:setLocked");
+
+  // Subscriptions refresh themselves; kept because a few call sites await it.
+  const reload = React.useCallback(async () => {}, []);
 
   const byFriend = React.useMemo(() => {
     const g = {};
@@ -292,78 +250,66 @@ function useMediaStore(){
     for (const f of valid){
       if (f.size > MAX_UPLOAD_BYTES) continue;
       const kind = f.type.startsWith("video/") ? "video" : "image";
-      const ext = extFromType(f.type, f.name?.split(".").pop());
-      const id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
-      // Path MUST start with group_id — storage RLS checks the top folder.
-      const path = `${auth.groupId}/${slugifyName(friendName)}/${id}.${ext}`;
       try {
-        const up = await window.sb.storage.from(BUCKET).upload(path, f, {
-          contentType: f.type, upsert: false,
+        // Convex's three-step upload: get a one-shot URL, POST the bytes to
+        // it, then record the row. media:add re-reads the real size from
+        // storage metadata and rolls the blob back if it refuses.
+        const uploadUrl = await uploadUrlMut({});
+        const res = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": f.type },
+          body: f,
         });
-        if (up.error) throw up.error;
-        const ins = await window.sb.from("media").insert({
-          id, friend: friendName, kind, type: f.type, name: f.name,
-          path, caption: defaultCaption,
-          author: auth.profile.display_name,
-          group_id: auth.groupId,
-          profile_id: auth.profile.id,
+        if (!res.ok) throw new Error("upload failed");
+        const { storageId } = await res.json();
+        await addMut({
+          storageId,
+          friend: friendName,
+          kind,
+          contentType: f.type,
+          name: f.name || "memory",
+          caption: defaultCaption,
         });
-        if (ins.error) {
-          // If the DB trigger refused for cap, surface that and roll back storage.
-          const capHit = /cap reached/i.test(ins.error.message || "");
-          try { await window.sb.storage.from(BUCKET).remove([path]); } catch(_){}
-          throw new Error(capHit
-            ? `this friend already has ${MAX_PER_FRIEND} memories — remove one to add more.`
-            : ins.error.message);
-        }
       } catch(e){
         console.warn("upload failed", e);
-        setUploadError(e?.message || "upload failed");
+        setUploadError(cleanError(e) || "upload failed");
         setTimeout(() => setUploadError(""), 6000);
       }
     }
-    await reload();
-  }, [reload, auth?.profile, auth?.groupId]);
+  }, [auth?.profile, uploadUrlMut, addMut]);
 
+  // No optimistic updates below: the live query reflects each change as soon
+  // as the mutation commits, and a failed mutation simply leaves the list be.
   const remove = React.useCallback(async (id) => {
     if (!auth?.profile) return;
-    const target = itemsRef.current.find(it => it.id === id);
-    setItems(arr => arr.filter(it => it.id !== id));
     try {
-      const drop = await window.sb.from("media").delete().eq("id", id);
-      if (drop.error) throw drop.error;
-      if (target?.path){
-        const del = await window.sb.storage.from(BUCKET).remove([target.path]);
-        if (del.error) console.warn("storage delete failed", del.error);
-      }
+      await removeMut({ id });
     } catch(e){
       console.warn("delete failed", e);
-      reload();  // rollback optimistic removal
+      setUploadError(cleanError(e));
+      setTimeout(() => setUploadError(""), 6000);
     }
-  }, [reload, auth?.profile]);
+  }, [auth?.profile, removeMut]);
 
   const setLocked = React.useCallback(async (id, locked) => {
     if (!auth?.profile) return;
-    setItems(arr => arr.map(it => it.id === id ? {...it, locked} : it));
     try {
-      const upd = await window.sb.from("media").update({ locked }).eq("id", id);
-      if (upd.error) throw upd.error;
+      await lockMut({ id, locked });
     } catch(e){
       console.warn("lock toggle failed", e);
-      reload();
+      setUploadError(cleanError(e));
+      setTimeout(() => setUploadError(""), 6000);
     }
-  }, [reload, auth?.profile]);
+  }, [auth?.profile, lockMut]);
 
   const updateCaption = React.useCallback(async (id, caption) => {
     if (!auth?.profile) return;
-    setItems(arr => arr.map(it => it.id === id ? {...it, caption} : it));
     try {
-      const upd = await window.sb.from("media").update({ caption }).eq("id", id);
-      if (upd.error) throw upd.error;
+      await captionMut({ id, caption: caption ?? "" });
     } catch(e){
       console.warn("caption update failed", e);
     }
-  }, [auth?.profile]);
+  }, [auth?.profile, captionMut]);
 
   return { items, byFriend, addFiles, remove, updateCaption, setLocked, ready, reload, uploadError, compressing };
 }
