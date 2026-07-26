@@ -183,6 +183,31 @@ export const createGroup = internalMutation({
   },
 });
 
+/**
+ * Rename a group in place, preserving its id, passcode and every profile
+ * hanging off it. Needed because the group was originally created by hand
+ * with an invented name rather than imported from Supabase.
+ *
+ * npx convex run groups:renameGroup '{"fromSlug":"bday","slug":"...","name":"..."}'
+ */
+export const renameGroup = internalMutation({
+  args: {
+    fromSlug: v.string(),
+    slug: v.string(),
+    name: v.string(),
+    legacyId: v.optional(v.string()),
+  },
+  handler: async (ctx, { fromSlug, slug, name, legacyId }) => {
+    const group = await ctx.db
+      .query("groups")
+      .withIndex("by_slug", (q) => q.eq("slug", fromSlug))
+      .first();
+    if (!group) throw new Error(`no group with slug "${fromSlug}"`);
+    await ctx.db.patch(group._id, { slug, name, ...(legacyId ? { legacyId } : {}) });
+    return { id: group._id, slug, name };
+  },
+});
+
 /** npx convex run groups:setPasscode '{"slug":"bday","passcode":"..."}' */
 export const setPasscode = internalMutation({
   args: { slug: v.string(), passcode: v.string() },

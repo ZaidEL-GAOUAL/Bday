@@ -87,6 +87,32 @@ export const inspect = internalAction({
   },
 });
 
+/**
+ * Diagnostic: full dump of the Supabase side, plus the list of every table
+ * PostgREST exposes, so we can prove nothing was left behind rather than
+ * assuming the tables we happened to know about were all of them.
+ */
+export const dumpSource = internalAction({
+  args: {},
+  handler: async () => {
+    const base = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_KEY;
+    if (!base || !key) throw new Error("SUPABASE_URL / SUPABASE_SERVICE_KEY not set");
+    const h = { apikey: key, Authorization: `Bearer ${key}` };
+
+    // PostgREST publishes an OpenAPI doc at the root listing every table.
+    const spec = await (await fetch(`${base}/rest/v1/`, { headers: h })).json();
+    const tables = Object.keys(spec?.definitions ?? spec?.components?.schemas ?? {});
+
+    const out: Record<string, unknown> = { tables };
+    for (const t of tables) {
+      const res = await fetch(`${base}/rest/v1/${t}?select=*`, { headers: h });
+      out[t] = res.ok ? await res.json() : `HTTP ${res.status}`;
+    }
+    return JSON.stringify(out);
+  },
+});
+
 export const run = internalAction({
   args: { dryRun: v.optional(v.boolean()), groupSlug: v.optional(v.string()) },
   handler: async (ctx, { dryRun = false, groupSlug = "bday" }) => {
